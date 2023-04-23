@@ -1,6 +1,8 @@
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -8,16 +10,19 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.sql.Date;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 
 public class Kho {
 	private ArrayList<QuabAo> list = new ArrayList<>();
 	private ArrayList<QuabAo> kho;
+	private java.util.Date dateFormat;
     public Kho() {
         kho = new ArrayList<>();
         list = new ArrayList<>();
@@ -99,37 +104,54 @@ public class Kho {
         System.out.println("Khong tim thay san pham co ma " + Ma);
     }   
     public void luuFile(File f) {
-        try {
-            FileWriter fw = new FileWriter(f);
+        try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
+            pw.println("Loai,Style,Size,ChatLieu,MA,MauSac,Hang,NgayNhap");
             for (QuabAo qa : kho) {
-                if (qa instanceof QuanAoNam) {
-                    QuanAoNam nam = (QuanAoNam) qa;
-                    fw.write("DoNam,"+nam.getLoai()+","+nam.getHang()+"," +nam.getStyle() +"," + nam.getMa() + "," + nam.getMausac() + "," + nam.getSize() + "," + nam.getChatlieu() +","+nam.getNgaynhap() +"\n");
-                } else if (qa instanceof QuanAoNu) {
-                    QuanAoNu nu = (QuanAoNu) qa;
-                    fw.write("DoNu,"+nu.getLoai()+","+nu.getHang()+"," +nu.getStyle() +"," + nu.getMa() + "," + nu.getMausac() + "," + nu.getSize() + "," + nu.getChatlieu() +","+nu.getNgaynhap()+"\n");
-                }
+                String loai = qa instanceof QuanAoNam ? "nam" : "nu";
+                pw.printf("%s,%s,%s,%s,%s,%s,%s,%tF%n", loai, qa.getStyle(), qa.getSize(),
+                        qa.getChatlieu(), qa.getMa(), qa.getMausac(), qa.getHang(), qa.getNgaynhap());
             }
-            System.out.println("da ghi file vao " + f.getAbsolutePath());
-            fw.close();
+            System.out.println("Da ghi file " + f.getAbsolutePath());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
     public void docFile(File f) {
         try {
             Scanner sc = new Scanner(f);
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+            List<QuabAo> kho = new ArrayList<>(); // create a new list to store the data
+
+            boolean firstLine = true; // cờ kiểm tra dòng đầu tiên
             while (sc.hasNextLine()) {
                 String line = sc.nextLine();
+                if (firstLine) { // nếu là dòng đầu tiên, bỏ qua
+                    firstLine = false;
+                    continue;
+                }
                 String[] fields = line.split(",");
-                if (fields.length == 9) {
-                    if (fields[0].equals("nam")) {
-                        QuanAoNam nam = new QuanAoNam(fields[1], fields[2], fields[3], fields[4], fields[5],fields[6] ,fields[7], dateFormat.parse(fields[8]));
+                if (fields.length == 8) {
+                    String loai = fields[0];
+                    String style = fields[1];
+                    String size = fields[2];
+                    String chatlieu = fields[3];
+                    String ma = fields[4];
+                    String mausac = fields[5];
+                    String hang = fields[6];
+                    Date ngaynhap = new Date(dateFormat.parse(fields[7]).getTime());
+                    // hoặc có thể sử dụng: Date ngaynhap = Date.valueOf(fields[7]);
+                    if (loai.equals("nam")) {
+                        QuanAoNam nam = new QuanAoNam(loai ,hang, style, size, chatlieu, mausac, ma, ngaynhap);
                         themDoNam(nam);
-                    } else if (fields[0].equals("")) {
-                        QuanAoNu nu = new QuanAoNu(fields[1], fields[2], fields[3], fields[4], fields[5],fields[6] ,fields[7], dateFormat.parse(fields[8]));
+                        kho.add(nam);
+                    } else if (loai.equals("nu")) {
+                        QuanAoNu nu = new QuanAoNu(loai ,hang, style, size, chatlieu, mausac, ma, ngaynhap);
                         themDoNu(nu);
+                        kho.add(nu);
+                    } else {
+                        System.out.println("Loai khong hop le: " + loai);
                     }
                 } else {
                     System.out.println("Dong khong hop le: " + line);
@@ -137,37 +159,29 @@ public class Kho {
             }
             System.out.println("Da doc file " + f.getAbsolutePath());
             sc.close();
-        } catch (IOException | ParseException e) {
-            e.printStackTrace();
-        }
-    }
 
-    public void xuatThongTin(File f) {
-        try {
-            Scanner sc = new Scanner(f);
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-            while (sc.hasNextLine()) {
-                String[] fields = sc.nextLine().split(",");
-                if (fields.length == 9) {
-                    String SP = fields[0];
-                    String Loai= fields[1];
-                    String Hang = fields[2];
-                    String style = fields[3];
-                    String ma = fields[4];
-                    String mausac = fields[5];
-                    String size = fields[6];
-                    String chatlieu = fields[7];
-                    Date ngaynhap = new java.sql.Date(dateFormat.parse(fields[8]).getTime());
-                    System.out.printf("SP: %s,Loai: %s, Hang: %s, Style: %s, Ma: %s, Mau sac: %s, Size: %s, Chat lieu: %s, Ngay nhap: %s\n", SP,Loai,Hang, style, ma, mausac, size, chatlieu, dateFormat.format(ngaynhap));
+            // Overwrite the entire file with the new data
+            try (PrintWriter pw = new PrintWriter(new FileWriter(f, false))) {
+                pw.println("Loai, LoaiSP ,Style,Size,ChatLieu,MA,MauSac,Hang,NgayNhap"); // Write the column headers
+                for (QuabAo qa : kho) {
+                    String loai = qa instanceof QuanAoNam ? "nam" : "nu";
+                    pw.printf("%s,%s,%s,%s,%s,%s,%s,%tF%n", loai,qa.getStyle(), qa.getSize(), qa.getChatlieu(), qa.getMa(), qa.getMausac(), qa.getHang(), new java.sql.Date(qa.getNgaynhap().getTime()));
                 }
+            } catch (IOException ex) {
+                System.out.println("Khong the ghi file: " + f.getAbsolutePath());
             }
-            sc.close();
-        } catch (IOException | ParseException e) {
-            e.printStackTrace();
+        } catch (FileNotFoundException ex) {
+            System.out.println("Khong tim thay file: " + f.getAbsolutePath());
+        } catch (ParseException ex) {
+            System.out.println("Loi dinh dang ngay thang: " + ex.getMessage());
         }
     }
 
     }
+
+
+
+
 
 
 
