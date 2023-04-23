@@ -72,7 +72,6 @@ public static void main(String[] args) throws ParseException {
              	    String F= sc.nextLine();
              	    File newFile=new File(F);         	   
             	    kho.docFile(newFile);
-            	    kho.xuatThongTin(newFile);
             	    break;
              default:
                  System.out.println("Nhap sai lua chon");
